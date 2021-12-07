@@ -8,10 +8,43 @@ import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.autograd import Variable
-import math as m
+import matplotlib.pyplot as plt
 
 
 def loadDataMultires(batch_size, size):
+    train = torchvision.datasets.ImageFolder(
+        root='./repo/mnist-varres_copy/'+str(size)+'/train/',
+        transform=torchvision.transforms.Compose([
+            torchvision.transforms.Resize(28),
+            torchvision.transforms.Grayscale(),
+            torchvision.transforms.ToTensor()
+        ]))
+
+    splitLen = int(len(train)*0.8)
+    train, validation = torch.utils.data.random_split(
+        train, [splitLen, len(train)-splitLen])
+
+    trainloader = torch.utils.data.DataLoader(
+        train, batch_size=batch_size, shuffle=True, num_workers=4)
+
+    validationloader = torch.utils.data.DataLoader(
+        validation, batch_size=batch_size, shuffle=True, num_workers=4)
+
+    test = torchvision.datasets.ImageFolder(
+        root='./repo/mnist-varres_copy/'+str(size)+'/test/',
+        transform=torchvision.transforms.Compose([
+            torchvision.transforms.Resize(28),
+            torchvision.transforms.Grayscale(),
+            torchvision.transforms.ToTensor()
+        ]))
+
+    testloader = torch.utils.data.DataLoader(
+        test, batch_size=batch_size, shuffle=True, num_workers=4)
+
+    return (trainloader, validationloader, testloader)
+
+
+def loadDataMultiresNoResize(batch_size, size):
     train = torchvision.datasets.ImageFolder(
         root='./repo/mnist-varres_copy/'+str(size)+'/train/',
         transform=torchvision.transforms.Compose([
@@ -19,8 +52,15 @@ def loadDataMultires(batch_size, size):
             torchvision.transforms.ToTensor()
         ]))
 
+    splitLen = int(len(train)*0.8)
+    train, validation = torch.utils.data.random_split(
+        train, [splitLen, len(train)-splitLen])
+
     trainloader = torch.utils.data.DataLoader(
         train, batch_size=batch_size, shuffle=True, num_workers=4)
+
+    validationloader = torch.utils.data.DataLoader(
+        validation, batch_size=batch_size, shuffle=True, num_workers=4)
 
     test = torchvision.datasets.ImageFolder(
         root='./repo/mnist-varres_copy/'+str(size)+'/test/',
@@ -32,7 +72,7 @@ def loadDataMultires(batch_size, size):
     testloader = torch.utils.data.DataLoader(
         test, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    return (trainloader, testloader)
+    return (trainloader, validationloader, testloader)
 
 
 def loadData(batch_size):
@@ -61,36 +101,6 @@ def loadData(batch_size):
     return (trainloader, testloader)
 
 
-def initNetworkMultires(batch_size, size):
-    class Net(nn.Module):
-        def __init__(self):
-            self.batch_size = batch_size
-            super().__init__()
-            self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
-            self.pool = nn.MaxPool2d(2)
-            self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
-            self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-            self.fc1 = nn.Linear(64*3*3, 10)
-
-        def forward(self, x):
-            assert x.shape == (
-                self.batch_size, 1, size, size), f'expected {(self.batch_size, 1, size, size)} but got: {x.shape}'
-            x = self.pool(F.relu(self.conv1(x)))
-            assert x.shape == (
-                self.batch_size, 16, size/2, size/2), f'OUR Assert expected {(self.batch_size, 16, size/2, size/2)} but got: {x.shape}'
-            x = self.pool(F.relu(self.conv2(x)))
-            assert x.shape == (
-                self.batch_size, 32, size/4, size/4), f'OUR Assert expected {(self.batch_size, 32, size/4, size/4)} but got: {x.shape}'
-            x = self.pool(F.relu(self.conv3(x)))
-            assert x.shape == (
-                self.batch_size, 64, 3, 3), f'OUR Assert expected {(self.batch_size, 64, 3, 3)} but got: {x.shape}'
-            x = torch.reshape(x, (self.batch_size, 64 * 3 * 3))
-            x = self.fc1(x)
-
-            return x
-    return Net()
-
-
 def initNetwork(batch_size):
     class Net(nn.Module):
         def __init__(self):
@@ -103,31 +113,62 @@ def initNetwork(batch_size):
             self.fc1 = nn.Linear(64*3*3, 10)
 
         def forward(self, x):
-            assert x.shape == (
-                self.batch_size, 1, 28, 28), f'expected {(self.batch_size, 1, 28, 28)} but got: {x.shape}'
             x = self.pool(F.relu(self.conv1(x)))
-            assert x.shape == (
-                self.batch_size, 16, 14, 14), f'OUR Assert expected {(self.batch_size, 16, 14, 14)} but got: {x.shape}'
             x = self.pool(F.relu(self.conv2(x)))
-            assert x.shape == (
-                self.batch_size, 32, 7, 7), f'OUR Assert expected {(self.batch_size, 32, 7, 7)} but got: {x.shape}'
             x = self.pool(F.relu(self.conv3(x)))
-
-            assert x.shape == (
-                self.batch_size, 64, 3, 3), f'OUR Assert expected {(self.batch_size, 64, 3, 3)} but got: {x.shape}'
-
-            x = torch.reshape(x, (self.batch_size, 64 * 3 * 3))
+            x = torch.reshape(x, (x.shape[0], 64 * 3 * 3))
             x = self.fc1(x)
 
             return x
     return Net()
 
 
-def train(num_epochs, cnn, trainloader, loss_func, optimizer):
+def initNetwork2(batch_size):
+    class Net(nn.Module):
+        def __init__(self):
+            self.batch_size = batch_size
+            super().__init__()
+            self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
+            self.pool = nn.MaxPool2d(2)
+            self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
+            self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+            self.fc1 = nn.Linear(64, 10)
+
+        def forward(self, x):
+            x = self.pool(F.relu(self.conv1(x)))
+            x = self.pool(F.relu(self.conv2(x)))
+            x = self.pool(F.relu(self.conv3(x)))
+            x = torch.max(torch.max(x, -1).values, -1)[0]
+            x = self.fc1(x)
+
+            return x
+    return Net()
+
+
+def Validate(model, loss_func, dataloader):
+    lossTotal = 0.0
+    accuracyTotal = 0.0
+    with torch.no_grad():
+        for data, labels in dataloader:
+            target = model(data)
+            # calc loss
+            loss = loss_func(target, labels)
+            lossTotal = loss.item() * data.size(0)
+
+            # calc accuracy
+            _, predicted = torch.max(target.data, 1)
+            accuracyTotal += (predicted == labels).sum().item() / \
+                predicted.size(0)
+
+    accuracy = accuracyTotal / len(dataloader)
+    finalLoss = lossTotal / len(dataloader)
+    return accuracy, finalLoss
+
+
+def train(num_epochs, cnn, trainloader, validationloader, loss_func, optimizer):
 
     cnn.train()
-    losses = []
-    acc = []
+    data = dict(train=[], validate=[])
 
     # Train the model
     total_step = len(trainloader)
@@ -135,7 +176,8 @@ def train(num_epochs, cnn, trainloader, loss_func, optimizer):
     for epoch in range(num_epochs):
 
         for i, (images, labels) in enumerate(trainloader):
-
+            if i >= total_step-46:
+                break
             # clear gradients for this training step
             optimizer.zero_grad()
 
@@ -156,11 +198,18 @@ def train(num_epochs, cnn, trainloader, loss_func, optimizer):
                 print(
                     f'Epoch [{epoch + 1}/{num_epochs}], Step [{i+1}/{total_step+1}], Loss: {loss.item():.4f}, Acc: {(predicted == b_y).sum().item() / predicted.size(0)}')
 
-            # collect data at end of epoch for analytics
-            losses.append(loss.item())
-            acc.append((predicted == b_y).sum().item() / predicted.size(0))
+        # collect data at end of epoch for analytics
+        # at each epoch: validate progress with both datasets
+        val_accuracy, val_loss = Validate(cnn, loss_func, validationloader)
+        print(
+            f"Epoch:{epoch+1}, Validation accuracy:{val_accuracy}, Validation loss: {val_loss}")
+        data["validate"].append([epoch, val_accuracy, val_loss])
 
-    return loss, acc
+        train_accuracy, train_loss = Validate(cnn, loss_func, trainloader)
+        print(
+            f"Epoch:{epoch+1}, Train accuracy:{train_accuracy}, Train loss: {train_loss}")
+        data["train"].append([epoch, train_accuracy, train_loss])
+    return data
 
 
 def test(cnn, testloader, loss_func):
@@ -178,4 +227,29 @@ def test(cnn, testloader, loss_func):
                 (predicted == labels).sum().item() / predicted.size(0))
         print('test loss: {}, test accuracy: {}'.format(
             np.mean(test_loss), np.mean(test_accuracy)))
-    return np.mean(test_accuracy), test_accuracy, test_loss
+    return np.mean(test_accuracy)
+
+
+def PlotLossAcc(result, titlePrefix=""):
+    epochs = [x[0]+1 for x in result["train"]]
+    plt.plot(epochs, [x[1]
+                      for x in result["train"]], marker='o', label='train')
+    plt.plot(epochs, [x[1] for x in result["validate"]],
+             marker='*', label='validate')
+    plt.title(f"Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig(titlePrefix+"_Accuracy.pdf")
+    plt.show()
+
+    plt.plot(epochs, [x[2]
+                      for x in result["train"]], marker='o', label='train')
+    plt.plot(epochs, [x[2] for x in result["validate"]],
+             marker='*', label='validate')
+    plt.title(f"Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig(titlePrefix+"_Loss.pdf")
+    plt.show()

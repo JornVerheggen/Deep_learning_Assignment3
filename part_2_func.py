@@ -8,15 +8,20 @@ import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib as plt
 from torch.autograd import Variable
+import matplotlib.pyplot as plt
 
 
 def loadData(batch_size, aug):
-    aug2 = transforms.Compose(aug)
-
     train = torchvision.datasets.MNIST(
-        root='./data', train=True, download=True, transform=aug2)
+        root='./data', train=True, download=True, transform=transforms.ToTensor())
+    train, validation = torch.utils.data.random_split(train, [50000, 10000])
+
     trainloader = torch.utils.data.DataLoader(
         train, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    validationloader = torch.utils.data.DataLoader(
+        validation, batch_size=batch_size, shuffle=True, num_workers=2)
+
     test = torchvision.datasets.MNIST(
         root='./data', train=False, download=True, transform=transforms.ToTensor())
     testloader = torch.utils.data.DataLoader(
@@ -24,7 +29,27 @@ def loadData(batch_size, aug):
 
     print(aug)
 
-    return (trainloader, testloader)
+    return (trainloader, validationloader, testloader)
+
+
+def Validate(model, loss_func, dataloader):
+    lossTotal = 0.0
+    accuracyTotal = 0.0
+    with torch.no_grad():
+        for data, labels in dataloader:
+            target = model(data)
+            # calc loss
+            loss = loss_func(target, labels)
+            lossTotal = loss.item() * data.size(0)
+
+            # calc accuracy
+            _, predicted = torch.max(target.data, 1)
+            accuracyTotal += (predicted == labels).sum().item() / \
+                predicted.size(0)
+
+    accuracy = accuracyTotal / len(dataloader)
+    finalLoss = lossTotal / len(dataloader)
+    return accuracy, finalLoss
 
 
 def initNetwork(batch_size):
@@ -59,11 +84,10 @@ def initNetwork(batch_size):
     return Net()
 
 
-def train(num_epochs, cnn, trainloader, loss_func, optimizer):
+def train(num_epochs, cnn, trainloader, validationloader, loss_func, optimizer):
 
     cnn.train()
-    losses = []
-    acc = []
+    data = dict(train=[], validate=[])
 
     # Train the model
     total_step = len(trainloader)
@@ -92,11 +116,17 @@ def train(num_epochs, cnn, trainloader, loss_func, optimizer):
                 print(
                     f'Epoch [{epoch + 1}/{num_epochs}], Step [{i+1}/{total_step+1}], Loss: {loss.item():.4f} Acc: {(predicted == b_y).sum().item() / predicted.size(0)}')
 
-            # collect data at end of epoch for analytics
-            losses.append(loss.item())
-            acc.append((predicted == b_y).sum().item() / predicted.size(0))
+        # at each epoch: validate progress with both datasets
+        val_accuracy, val_loss = Validate(cnn, loss_func, validationloader)
+        print(
+            f"Epoch:{epoch}, Validation accuracy:{val_accuracy}, Validation loss: {val_loss}")
+        data["validate"].append([epoch, val_accuracy, val_loss])
 
-    return loss, acc
+        train_accuracy, train_loss = Validate(cnn, loss_func, trainloader)
+        print(
+            f"Epoch:{epoch}, Train accuracy:{train_accuracy}, Train loss: {train_loss}")
+        data["train"].append([epoch, train_accuracy, train_loss])
+    return data
 
 
 def test(cnn, testloader, loss_func):
@@ -114,4 +144,4 @@ def test(cnn, testloader, loss_func):
                 (predicted == labels).sum().item() / predicted.size(0))
         print('test loss: {}, test accuracy: {}'.format(
             np.mean(test_loss), np.mean(test_accuracy)))
-    return np.mean(test_accuracy), test_accuracy, test_loss
+    return np.mean(test_accuracy)  # ,test_accuracy, test_loss

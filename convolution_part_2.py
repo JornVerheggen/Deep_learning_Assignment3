@@ -17,17 +17,22 @@ import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib as plt
 from torch.autograd import Variable
-
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
     print('hello')
-    batch_size = 100
+    batch_size = 16
 
     train = torchvision.datasets.MNIST(
         root='./data', train=True, download=True, transform=transforms.ToTensor())
+    train, validation = torch.utils.data.random_split(train, [50000, 10000])
+
     trainloader = torch.utils.data.DataLoader(
         train, batch_size=batch_size, shuffle=True, num_workers=2)
+    validationloader = torch.utils.data.DataLoader(
+        validation, batch_size=batch_size, shuffle=True, num_workers=2)
+
     test = torchvision.datasets.MNIST(
         root='./data', train=False, download=True, transform=transforms.ToTensor())
     testloader = torch.utils.data.DataLoader(
@@ -35,7 +40,6 @@ if __name__ == '__main__':
 
     class Net(nn.Module):
         def __init__(self):
-            batch = 100
             super().__init__()
             self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
             self.pool = nn.MaxPool2d(2)
@@ -44,7 +48,7 @@ if __name__ == '__main__':
             self.fc1 = nn.Linear(64*3*3, 10)
 
         def forward(self, x):
-            batch = 100
+            batch = 16
             assert x.shape == (
                 batch, 1, 28, 28), f'expected {(batch, 1, 28, 28)} but got: {x.shape}'
             x = self.pool(F.relu(self.conv1(x)))
@@ -68,10 +72,29 @@ if __name__ == '__main__':
     loss_func = nn.CrossEntropyLoss()
     optimizer = optim.Adam(cnn.parameters(), lr=0.0005)
 
-    num_epochs = 10
+    num_epochs = 5
+
+    def Validate(model, loss_func, dataloader):
+        lossTotal = 0.0
+        accuracyTotal = 0.0
+        with torch.no_grad():
+            for data, labels in dataloader:
+                target = model(data)
+                # calc loss
+                loss = loss_func(target, labels)
+                lossTotal = loss.item() * data.size(0)
+
+                # calc accuracy
+                _, predicted = torch.max(target.data, 1)
+                accuracyTotal += (predicted == labels).sum().item() / \
+                    predicted.size(0)
+
+        accuracy = accuracyTotal / len(dataloader)
+        finalLoss = lossTotal / len(dataloader)
+        return accuracy, finalLoss
 
     def train(num_epochs, cnn, optimizer):
-
+        data = dict(train=[], validate=[])
         cnn.train()
 
         # Train the model
@@ -89,6 +112,7 @@ if __name__ == '__main__':
                 loss = loss_func(output, b_y)
 
                 # clear gradients for this training step
+                optimizer.zero_grad()
 
                 # backpropagation, compute gradients
                 loss.backward()
@@ -98,12 +122,22 @@ if __name__ == '__main__':
                 if (i+1) % 100 == 0:
                     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(
                         epoch + 1, num_epochs, i + 1, total_step, loss.item()))
-                    pass
 
-            pass
+            # at each epoch: validate progress with both datasets
+            val_accuracy, val_loss = Validate(cnn, loss_func, validationloader)
+            print(
+                f"Epoch:{epoch}, Validation accuracy:{val_accuracy}, Validation loss: {val_loss}")
+            data["validate"].append([epoch, val_accuracy, val_loss])
 
-        pass
-    train(num_epochs, cnn, optimizer)
+            train_accuracy, train_loss = Validate(cnn, loss_func, trainloader)
+            print(
+                f"Epoch:{epoch}, Train accuracy:{train_accuracy}, Train loss: {train_loss}")
+            data["train"].append([epoch, train_accuracy, train_loss])
+        return data
+
+    result = train(num_epochs, cnn, optimizer)
+    with open('Q7_results.txt', 'w') as f:
+        print(result, file=f)
 
     def test2():
         cnn.eval()
@@ -122,7 +156,30 @@ if __name__ == '__main__':
                 np.mean(test_loss), np.mean(test_accuracy)))
         return np.mean(test_accuracy)
 
-    accuracy = test2()  # test()
+    accuracy = test2()
 
     print(
         f'Test Accuracy of the model on the 10000 test images: {100 * accuracy:.2f}%')
+
+    epochs = [x[0]+1 for x in result["train"]]
+    plt.plot(epochs, [x[1]
+             for x in result["train"]], marker='o', label='train')
+    plt.plot(epochs, [x[1] for x in result["validate"]],
+             marker='*', label='validate')
+    plt.title(f"Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig("Q7_Accuracy.pdf")
+    plt.show()
+
+    plt.plot(epochs, [x[2]
+             for x in result["train"]], marker='o', label='train')
+    plt.plot(epochs, [x[2] for x in result["validate"]],
+             marker='*', label='validate')
+    plt.title(f"Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig("Q7_Loss.pdf")
+    plt.show()

@@ -14,7 +14,7 @@ import part_3_func
 
 if __name__ == '__main__':
     batch_size = 16  # 16 for final
-    epochs = 1
+    epochs = 5
 
     for imageSize in [32, 48, 64]:
         print(f"Running with image size {imageSize}")
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         outSampleAccuracy = []
 
         # set up network and optimizers
-        cnn = part_3_func.initNetworkMultires(batch_size, imageSize)
+        cnn = part_3_func.initNetwork(batch_size)
         loss_func = nn.CrossEntropyLoss()
         optimizer = optim.Adam(cnn.parameters(), lr=0.0005)
 
@@ -40,7 +40,3 @@ if __name__ == '__main__':
         # use test data to eval model
         result = part_3_func.test(cnn, testloader, loss_func)
         outSampleAccuracy.append(result)
-
-# df = pandas.DataFrame(dict(inSampleLoss=inSampleLoss,
-#                       inSampleAccuracy=inSampleAccuracy, outSampleAccuracy=outSampleAccuracy))
-# df.to_csv("transformResults.csv")

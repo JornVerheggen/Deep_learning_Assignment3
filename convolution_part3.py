@@ -14,11 +14,7 @@ import part_3_func
 
 if __name__ == '__main__':
     batch_size = 16  # 16 for final
-    epochs = 1
-
-    inSampleLoss = []
-    inSampleAccuracy = []
-    outSampleAccuracy = []
+    epochs = 5
 
     # set up network and optimizers
     cnn = part_3_func.initNetwork(batch_size)
@@ -30,13 +26,6 @@ if __name__ == '__main__':
 
     loss, acc = part_3_func.train(
         epochs, cnn, trainloader, loss_func, optimizer)
-    inSampleLoss.append(loss)
-    inSampleAccuracy.append(acc)
 
     # use test data to eval model
     result = part_3_func.test(cnn, testloader, loss_func)
-    outSampleAccuracy.append(result)
-
-# df = pandas.DataFrame(dict(inSampleLoss=inSampleLoss,
-#                       inSampleAccuracy=inSampleAccuracy, outSampleAccuracy=outSampleAccuracy))
-# df.to_csv("transformResults.csv")
