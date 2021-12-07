@@ -63,14 +63,16 @@ def train(num_epochs, cnn, trainloader, loss_func, optimizer):
 
     cnn.train()
     losses = []
+    acc = []
 
     # Train the model
     total_step = len(trainloader)
 
     for epoch in range(num_epochs):
-        test_accuracy = []
+
         for i, (images, labels) in enumerate(trainloader):
 
+            # clear gradients for this training step
             optimizer.zero_grad()
 
             # gives batch data, normalize x when iterate train_loader
@@ -78,22 +80,23 @@ def train(num_epochs, cnn, trainloader, loss_func, optimizer):
             b_y = Variable(labels)   # batch y
             output = cnn(b_x)
             loss = loss_func(output, b_y)
-
-            test_accuracy.append(
-                (output == b_y).sum().item() / output.size(0))
-            # clear gradients for this training step
+            _, predicted = torch.max(output.data, 1)
 
             # backpropagation, compute gradients
             loss.backward()
             # apply gradients
             optimizer.step()
 
+            # print loss every 100
             if (i+1) % 100 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(
-                    epoch + 1, num_epochs, i + 1, total_step, loss.item()))
-                losses.append(loss.item())
+                print(
+                    f'Epoch [{epoch + 1}/{num_epochs}], Step [{i+1}/{total_step+1}], Loss: {loss.item():.4f} Acc: {(predicted == b_y).sum().item() / predicted.size(0)}')
 
-    print(f'Test accuracy sofar: {np.mean(test_accuracy)}')
+            # collect data at end of epoch for analytics
+            losses.append(loss.item())
+            acc.append((predicted == b_y).sum().item() / predicted.size(0))
+
+    return loss, acc
 
 
 def test(cnn, testloader, loss_func):

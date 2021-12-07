@@ -1,10 +1,7 @@
-    # train_loader = torch.utils.data.DataLoader(torchvision.datasets.MNIST('./data',
-    #                                                                       download=True,
-    #                                                                       train=True,
-    #                                                                       transform=transforms.Compose([
-    #                                                                           transforms.ToTensor(),  # first, convert image to PyTorch tensor
-    #                                                                           transforms.RandomRotation(
-    #                                                                               degrees=(45, -45), fill=(0,))  # normalize inputs
-    #                                                                       ])),
-    #                                            batch_size=10,
-    #                                            shuffle=True)
+    # [transforms.RandomAdjustSharpness(0.9, p=0.001), transforms.ToTensor()],
+    # [transforms.RandomPerspective(), transforms.ToTensor()],
+    # [transforms.GaussianBlur(7), transforms.ToTensor()],
+    # [transforms.RandomAffine(degrees=20, translate=(
+    #     0.1, 0.1), scale=(0.9, 1.1)), transforms.ToTensor()],
+    # [transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    #  transforms.ToTensor()]
